@@ -42,6 +42,7 @@
 .clearance-popup p{margin:0;color:#d3def1;font-size:13px;line-height:1.5}
 .clearance-popup .clearance-highlight{color:#86efac;font-weight:700}
 .clearance-popup .clearance-preview-note{margin-top:9px;color:#91a2bd;font-size:11px}
+.clearance-menu[data-level="0"] .clearance-trigger{background:#273347;border-color:#64748b;color:#cbd5e1}
 .clearance-menu[data-level="2"] .clearance-trigger{background:#142e56;border-color:#3b82f6;color:#93c5fd}
 .clearance-menu[data-level="2"] .clearance-highlight{color:#93c5fd}
 .clearance-menu[data-level="3"] .clearance-trigger{background:#451b25;border-color:#ef4444;color:#fca5a5}
@@ -89,7 +90,7 @@
   <div class="side-bottom"><strong>◉ Demo environment</strong><p>This prototype uses sample devices. No real computers are being monitored.</p></div>
 </aside>
 <main class="main">
-<header class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="mobile-menu" id="menuBtn" aria-label="Open menu">☰</button><div><div class="crumb">Workspace / <span id="crumb">Overview</span></div><h1 id="topTitle">Admin overview</h1></div><details class="clearance-menu" id="clearanceMenu" data-level="1"><summary class="clearance-trigger" aria-label="View your clearance information"><span aria-hidden="true">⛨</span><span id="clearanceBadgeText">LEVEL 1 CLEARANCE</span><span aria-hidden="true">⌄</span></summary><div class="clearance-popup"><strong>Clearance Information</strong><p>Preview message: Your Administrator has assigned you with <span class="clearance-highlight" id="clearanceDescription">Level 1 Teacher Clearance.</span></p><p class="clearance-preview-note" id="clearancePreviewNote">Preview badge only. Your administrator role has not yet been connected to Supabase permissions.</p></div></details></div><div class="top-right"><span class="status-pill"><span class="dot"></span> All systems nominal</span><details class="account-menu" id="accountMenu">
+<header class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="mobile-menu" id="menuBtn" aria-label="Open menu">☰</button><div><div class="crumb">Workspace / <span id="crumb">Overview</span></div><h1 id="topTitle">Admin overview</h1></div><details class="clearance-menu" id="clearanceMenu" data-level="0"><summary class="clearance-trigger" aria-label="View your clearance information"><span aria-hidden="true">⛨</span><span id="clearanceBadgeText">CLEARANCE UNASSIGNED</span><span aria-hidden="true">⌄</span></summary><div class="clearance-popup"><strong>Clearance Information</strong><p><span class="clearance-highlight" id="clearanceDescription">Loading your clearance…</span></p><p class="clearance-preview-note" id="clearancePreviewNote">Preview badge only. Your administrator role has not yet been connected to Supabase permissions.</p></div></details></div><div class="top-right"><span class="status-pill"><span class="dot"></span> All systems nominal</span><details class="account-menu" id="accountMenu">
   <summary class="account-trigger" aria-label="Open account menu"><span class="avatar">CA</span><span class="account-chevron" aria-hidden="true">⌄</span></summary>
   <div class="account-dropdown" role="group" aria-label="Account actions">
     <button class="account-logout" id="signOutBtn" type="button">↪ <span>Sign out</span></button>
@@ -160,6 +161,7 @@ const authClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_PUBLISHA
   auth: {persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, storage:sessionStorageAdapter, storageKey:SESSION_KEY}
 });
 function lockPanel(){
+  resetClearanceBadge();
   const menu=$("accountMenu");if(menu)menu.open=false;
   adminApp.style.display="none";loginScreen.style.display="grid";
   loginForm.reset();turnstileToken="";
@@ -184,6 +186,7 @@ async function sentinelLogin(){
     if(error)throw error;
     if(!data.session)throw new Error("No active session was returned.");
     unlockPanel();
+    void loadUserClearance(data.session.user.id);
   }catch(e){loginError.textContent="Sign in failed. Check your email, password, and account confirmation.";loginError.classList.add("show");$("loginPassword").value="";}
   finally{if(submit)submit.disabled=false;}
 }
@@ -192,10 +195,10 @@ async function signOut(){if(authClient){try{await authClient.auth.signOut()}catc
 if(authClient){
   authClient.auth.onAuthStateChange((event,session)=>{
     if(event==="SIGNED_OUT")lockPanel();
-    else if(session?.user)unlockPanel();
+    else if(session?.user){unlockPanel();void loadUserClearance(session.user.id);}
   });
   authClient.auth.getSession().then(({data,error})=>{
-    if(!error && data?.session?.user)unlockPanel();else lockPanel();
+    if(!error && data?.session?.user){unlockPanel();void loadUserClearance(data.session.user.id);}else lockPanel();
   }).catch(()=>lockPanel());
 }else{loginError.textContent="Unable to load Supabase Authentication. Reload the page.";loginError.classList.add("show");}
 
@@ -283,7 +286,22 @@ renderAll();
 try{localStorage.removeItem("securly_demo_remembered");sessionStorage.removeItem("securly_demo_session");}catch(e){}
 </script>
 <script>
-// Call only after an authorized Supabase role lookup; never trust user-editable metadata.
+// Clearance labels reflect the current authenticated user's Supabase record.
+// This is display-only. Enforce permissions independently with database RLS.
+let clearanceRequestId = 0;
+function resetClearanceBadge(message="Clearance not assigned"){
+  clearanceRequestId++;
+  const menu=document.getElementById("clearanceMenu");
+  if(!menu)return;
+  menu.open=false;
+  menu.dataset.level="0";
+  document.getElementById("clearanceBadgeText").textContent="CLEARANCE UNASSIGNED";
+  document.getElementById("clearanceDescription").textContent=message;
+  const p=document.getElementById("clearanceDescription").parentElement;
+  p.firstChild.textContent="";
+  const note=document.getElementById("clearancePreviewNote");
+  if(note)note.textContent="Contact your administrator if this seems incorrect.";
+}
 function displayVerifiedClearance(level){
   const roles={1:"Teacher",2:"School Administrator",3:"District Administrator"};
   if(!Object.prototype.hasOwnProperty.call(roles,level))return;
@@ -292,9 +310,28 @@ function displayVerifiedClearance(level){
   document.getElementById("clearanceBadgeText").textContent=`LEVEL ${level} CLEARANCE`;
   document.getElementById("clearanceDescription").textContent=`Level ${level} ${roles[level]} Clearance.`;
   const note=document.getElementById("clearancePreviewNote");
-  note.remove();
+  if(note)note.style.display="none";
   const p=document.getElementById("clearanceDescription").parentElement;
   p.firstChild.textContent="Your Administrator has assigned you with ";
+}
+async function loadUserClearance(userId){
+  resetClearanceBadge("Loading your assigned clearance…");
+  const requestId=clearanceRequestId;
+  if(!authClient||!userId)return;
+  try{
+    const {data,error}=await authClient.from("admin_clearances")
+      .select("clearance_level").eq("user_id",userId).maybeSingle();
+    if(requestId!==clearanceRequestId)return;
+    if(error)throw error;
+    const level=Number(data?.clearance_level);
+    if([1,2,3].includes(level))displayVerifiedClearance(level);
+    else resetClearanceBadge("No clearance has been assigned to your account.");
+  }catch(error){
+    if(requestId===clearanceRequestId){
+      resetClearanceBadge("Unable to load your clearance from Supabase.");
+      console.warn("Clearance lookup failed:",error);
+    }
+  }
 }
 </script>
 </body>
