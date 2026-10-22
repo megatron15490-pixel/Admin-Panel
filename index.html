@@ -31,7 +31,7 @@
 .account-logout{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:transparent;border:0;border-radius:8px;padding:11px 12px;color:#ffb5bf;font-size:13px}
 .account-logout:hover{background:#29354a;border:0}
 
-/* Clearance badge: visual preview only until server-authorized roles are configured. */
+/* Clearance badge: reflects Supabase record; authorization is enforced separately by RLS. */
 .clearance-menu{position:relative;flex-shrink:0;margin-left:16px}
 .clearance-trigger{display:flex;align-items:center;gap:7px;list-style:none;cursor:pointer;border:1px solid #22c55e;border-radius:9px;padding:8px 11px;background:#123a2e;color:#86efac;font-size:11px;font-weight:750;letter-spacing:.035em;white-space:nowrap;user-select:none}
 .clearance-trigger::-webkit-details-marker{display:none}
@@ -90,7 +90,7 @@
   <div class="side-bottom"><strong>◉ Demo environment</strong><p>This prototype uses sample devices. No real computers are being monitored.</p></div>
 </aside>
 <main class="main">
-<header class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="mobile-menu" id="menuBtn" aria-label="Open menu">☰</button><div><div class="crumb">Workspace / <span id="crumb">Overview</span></div><h1 id="topTitle">Admin overview</h1></div><details class="clearance-menu" id="clearanceMenu" data-level="0"><summary class="clearance-trigger" aria-label="View your clearance information"><span aria-hidden="true">⛨</span><span id="clearanceBadgeText">CLEARANCE UNASSIGNED</span><span aria-hidden="true">⌄</span></summary><div class="clearance-popup"><strong>Clearance Information</strong><p><span class="clearance-highlight" id="clearanceDescription">Loading your clearance…</span></p><p class="clearance-preview-note" id="clearancePreviewNote">Preview badge only. Your administrator role has not yet been connected to Supabase permissions.</p></div></details></div><div class="top-right"><span class="status-pill"><span class="dot"></span> All systems nominal</span><details class="account-menu" id="accountMenu">
+<header class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="mobile-menu" id="menuBtn" aria-label="Open menu">☰</button><div><div class="crumb">Workspace / <span id="crumb">Overview</span></div><h1 id="topTitle">Admin overview</h1></div><details class="clearance-menu" id="clearanceMenu" data-level="0"><summary class="clearance-trigger" aria-label="View your clearance information"><span aria-hidden="true">⛨</span><span id="clearanceBadgeText">CLEARANCE UNASSIGNED</span><span aria-hidden="true">⌄</span></summary><div class="clearance-popup"><strong>Clearance Information</strong><p><span id="clearancePrefix"></span><span class="clearance-highlight" id="clearanceDescription">Loading your clearance…</span></p><p class="clearance-preview-note" id="clearancePreviewNote">Preview badge only. Your administrator role has not yet been connected to Supabase permissions.</p></div></details></div><div class="top-right"><span class="status-pill"><span class="dot"></span> All systems nominal</span><details class="account-menu" id="accountMenu">
   <summary class="account-trigger" aria-label="Open account menu"><span class="avatar">CA</span><span class="account-chevron" aria-hidden="true">⌄</span></summary>
   <div class="account-dropdown" role="group" aria-label="Account actions">
     <button class="account-logout" id="signOutBtn" type="button">↪ <span>Sign out</span></button>
@@ -297,8 +297,7 @@ function resetClearanceBadge(message="Clearance not assigned"){
   menu.dataset.level="0";
   document.getElementById("clearanceBadgeText").textContent="CLEARANCE UNASSIGNED";
   document.getElementById("clearanceDescription").textContent=message;
-  const p=document.getElementById("clearanceDescription").parentElement;
-  p.firstChild.textContent="";
+  document.getElementById("clearancePrefix").textContent="";
   const note=document.getElementById("clearancePreviewNote");
   if(note)note.textContent="Contact your administrator if this seems incorrect.";
 }
@@ -311,8 +310,7 @@ function displayVerifiedClearance(level){
   document.getElementById("clearanceDescription").textContent=`Level ${level} ${roles[level]} Clearance.`;
   const note=document.getElementById("clearancePreviewNote");
   if(note)note.style.display="none";
-  const p=document.getElementById("clearanceDescription").parentElement;
-  p.firstChild.textContent="Your Administrator has assigned you with ";
+  document.getElementById("clearancePrefix").textContent="Your Administrator has assigned you with ";
 }
 async function loadUserClearance(userId){
   resetClearanceBadge("Loading your assigned clearance…");
