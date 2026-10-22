@@ -54,6 +54,12 @@
 /* First development update */
 .top-clock{color:#c4d6f3;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#17243a}
 .search-panel{margin:0 0 18px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}.search-panel input{width:min(100%,390px);flex:1}.search-hits{margin:0 0 20px;display:grid;gap:8px}.search-hits[hidden]{display:none}.search-hit{border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:12px 14px}.search-hit small{display:block;color:var(--muted);margin-top:3px}.profile-box{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:18px;margin-bottom:18px}.profile-box h3{margin:0 0 7px}.profile-box p{color:var(--muted);margin:0 0 12px}.profile-box .form-row{display:flex;gap:9px;max-width:580px}.profile-box .form-row input{flex:1;min-width:0}.feature-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.feature-tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px}.feature-tile h3{font-size:14px;margin:0 0 7px}.feature-tile p{color:var(--muted);font-size:12px;margin:0 0 9px}.feature-tile .badge{font-size:10px}@media(max-width:700px){.feature-list{grid-template-columns:1fr}.top-clock{font-size:11px;padding:6px}.search-panel input{width:100%}}
+
+/* First-login display-name setup */
+.name-setup-overlay{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(3,8,20,.78);backdrop-filter:blur(7px)}
+.name-setup-overlay.show{display:flex}
+.name-setup-card{width:min(100%,460px);background:#111d32;border:1px solid #344866;border-radius:20px;padding:28px;color:#f8fafc;box-shadow:0 24px 80px rgba(0,0,0,.45)}
+.name-setup-card h2{margin:0 0 8px;font-size:24px}.name-setup-card p{color:#b8c7dd;line-height:1.5;margin:0 0 20px}.name-setup-card label{display:block;font-size:13px;color:#cbd5e1;margin:0 0 8px}.name-setup-card input{width:100%;box-sizing:border-box;background:#f8fafc;color:#111827;border:1px solid #cbd5e1;border-radius:10px;padding:13px;font-size:16px;margin-bottom:12px}.name-setup-card button{width:100%;border:0;border-radius:10px;background:#6693ff;color:#071326;font-weight:700;padding:13px;cursor:pointer}.name-setup-card button:disabled{opacity:.6;cursor:wait}.name-setup-status{font-size:13px;color:#fbbf24;min-height:18px;margin-top:10px}
 </style>
 
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -96,7 +102,7 @@
   <div class="side-bottom"><strong>◉ Demo environment</strong><p>This prototype uses sample devices. No real computers are being monitored.</p></div>
 </aside>
 <main class="main">
-<header class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="mobile-menu" id="menuBtn" aria-label="Open menu">☰</button><div><div class="crumb">Workspace / <span id="crumb">Overview</span></div><h1 id="topTitle">Admin overview</h1></div><details class="clearance-menu" id="clearanceMenu" data-level="0"><summary class="clearance-trigger" aria-label="View your clearance information"><span aria-hidden="true">⛨</span><span id="clearanceBadgeText">CLEARANCE UNASSIGNED</span><span aria-hidden="true">⌄</span></summary><div class="clearance-popup"><strong>Clearance Information</strong><p><span id="clearancePrefix"></span><span class="clearance-highlight" id="clearanceDescription">Loading your clearance…</span></p><p class="clearance-preview-note" id="clearancePreviewNote">Preview badge only. Your administrator role has not yet been connected to Supabase permissions.</p></div></details></div><div class="top-right"><time id="liveClock" class="top-clock" aria-label="Current local time">--:-- --</time><span class="status-pill"><span class="dot"></span> All systems nominal</span><details class="account-menu" id="accountMenu">
+<header class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="mobile-menu" id="menuBtn" aria-label="Open menu">☰</button><div><div class="crumb">Workspace / <span id="crumb">Overview</span></div><h1 id="topTitle">Admin overview</h1></div><details class="clearance-menu" id="clearanceMenu" data-level="0"><summary class="clearance-trigger" aria-label="View your clearance information"><span aria-hidden="true">⛨</span><span id="clearanceBadgeText">CLEARANCE UNASSIGNED</span><span aria-hidden="true">⌄</span></summary><div class="clearance-popup"><strong>Clearance Information</strong><p><span id="clearancePrefix"></span><span class="clearance-highlight" id="clearanceDescription">Loading your clearance…</span></p><p class="clearance-preview-note" id="clearancePreviewNote">Preview badge only. Your administrator role has not yet been connected to Supabase permissions.</p></div></details></div><div class="top-right"><time id="liveClock" class="top-clock" aria-label="Current local time">--:-- --</time><span class="status-pill"><span class="dot"></span> All systems normal</span><details class="account-menu" id="accountMenu">
   <summary class="account-trigger" aria-label="Open account menu"><span class="avatar">CA</span><span class="account-chevron" aria-hidden="true">⌄</span></summary>
   <div class="account-dropdown" role="group" aria-label="Account actions">
     <button class="account-logout" id="signOutBtn" type="button">↪ <span>Sign out</span></button>
@@ -165,6 +171,16 @@
 </section>
 </div>
 </main>
+</div>
+<div class="name-setup-overlay" id="nameSetupOverlay" role="dialog" aria-modal="true" aria-labelledby="nameSetupTitle">
+  <form class="name-setup-card" id="nameSetupForm">
+    <h2 id="nameSetupTitle">What should we call you?</h2>
+    <p>Choose the name you'd like to see on your dashboard. You only need to do this once. You can update it later in My Account.</p>
+    <label for="firstLoginDisplayName">Display name</label>
+    <input id="firstLoginDisplayName" maxlength="80" autocomplete="name" placeholder="Enter your name" required minlength="2">
+    <button id="saveFirstLoginName" type="submit">Save and continue</button>
+    <div class="name-setup-status" id="firstLoginNameStatus" role="status"></div>
+  </form>
 </div>
 <div class="toast" id="toast" role="status"></div>
 <script>
@@ -395,6 +411,12 @@ async function loadPersonalProfile(user){
     currentDisplayName=name;
     if(field)field.value=name;
     if(status)status.textContent=name?"Your display name is saved in Supabase.":"No profile name yet. Type your name and save.";
+    const onboarding=document.getElementById("nameSetupOverlay");
+    const onboardingField=document.getElementById("firstLoginDisplayName");
+    if(onboarding){
+      if(name){onboarding.classList.remove("show");if(onboardingField)onboardingField.value="";}
+      else {onboarding.classList.add("show");if(onboardingField)onboardingField.focus();}
+    }
   }catch(err){
     if(currentProfileUserId!==uid)return;
     if(status)status.textContent="Cloud profile is not ready. Run the included SQL setup, then reload.";
@@ -417,6 +439,28 @@ document.getElementById("saveProfile").addEventListener("click",async()=>{
   }catch(err){status.textContent="Save failed. Check that the SQL setup was run and you're signed in.";console.warn(err)}
   finally{btn.disabled=false;}
 });
+// First-login onboarding: accounts without a saved profile name must set one once.
+document.getElementById("nameSetupForm").addEventListener("submit",async(e)=>{
+  e.preventDefault();
+  const input=document.getElementById("firstLoginDisplayName");
+  const status=document.getElementById("firstLoginNameStatus");
+  const button=document.getElementById("saveFirstLoginName");
+  const name=input.value.trim().replace(/\s+/g," ");
+  if(!currentProfileUserId){status.textContent="Your sign-in session could not be verified. Please sign in again.";return;}
+  if(name.length<2||name.length>80){status.textContent="Enter a name between 2 and 80 characters.";return;}
+  button.disabled=true;status.textContent="Saving your name…";
+  try{
+    const {error}=await authClient.from("staff_profiles").upsert({user_id:currentProfileUserId,display_name:name},{onConflict:"user_id"});
+    if(error)throw error;
+    currentDisplayName=name;
+    const profileField=document.getElementById("profileName");if(profileField)profileField.value=name;
+    const profileStatus=document.getElementById("profileStatus");if(profileStatus)profileStatus.textContent="Your display name is saved in Supabase.";
+    document.getElementById("nameSetupOverlay").classList.remove("show");
+    status.textContent="Saved.";refreshDashboardClock();
+  }catch(err){status.textContent="Couldn't save your name. Check the profile table setup and try again.";console.warn("First-login profile save failed:",err)}
+  finally{button.disabled=false;}
+});
+
 // Only search own profile + fictional locally saved demo devices in this phase.
 function searchDemoDirectory(){
   const q=document.getElementById("globalSearch").value.trim().toLowerCase();
