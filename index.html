@@ -50,6 +50,10 @@
 .clearance-menu[data-level="4"] .clearance-trigger{background:#492911;border-color:#f97316;color:#fdba74}
 .clearance-menu[data-level="4"] .clearance-highlight{color:#fdba74}
 @media(max-width:700px){.clearance-menu{margin-left:8px}.clearance-trigger{padding:7px;font-size:10px}.clearance-popup{right:0}}
+
+/* First development update */
+.top-clock{color:#c4d6f3;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#17243a}
+.search-panel{margin:0 0 18px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}.search-panel input{width:min(100%,390px);flex:1}.search-hits{margin:0 0 20px;display:grid;gap:8px}.search-hits[hidden]{display:none}.search-hit{border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:12px 14px}.search-hit small{display:block;color:var(--muted);margin-top:3px}.profile-box{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:18px;margin-bottom:18px}.profile-box h3{margin:0 0 7px}.profile-box p{color:var(--muted);margin:0 0 12px}.profile-box .form-row{display:flex;gap:9px;max-width:580px}.profile-box .form-row input{flex:1;min-width:0}.feature-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.feature-tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px}.feature-tile h3{font-size:14px;margin:0 0 7px}.feature-tile p{color:var(--muted);font-size:12px;margin:0 0 9px}.feature-tile .badge{font-size:10px}@media(max-width:700px){.feature-list{grid-template-columns:1fr}.top-clock{font-size:11px;padding:6px}.search-panel input{width:100%}}
 </style>
 
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -92,7 +96,7 @@
   <div class="side-bottom"><strong>◉ Demo environment</strong><p>This prototype uses sample devices. No real computers are being monitored.</p></div>
 </aside>
 <main class="main">
-<header class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="mobile-menu" id="menuBtn" aria-label="Open menu">☰</button><div><div class="crumb">Workspace / <span id="crumb">Overview</span></div><h1 id="topTitle">Admin overview</h1></div><details class="clearance-menu" id="clearanceMenu" data-level="0"><summary class="clearance-trigger" aria-label="View your clearance information"><span aria-hidden="true">⛨</span><span id="clearanceBadgeText">CLEARANCE UNASSIGNED</span><span aria-hidden="true">⌄</span></summary><div class="clearance-popup"><strong>Clearance Information</strong><p><span id="clearancePrefix"></span><span class="clearance-highlight" id="clearanceDescription">Loading your clearance…</span></p><p class="clearance-preview-note" id="clearancePreviewNote">Preview badge only. Your administrator role has not yet been connected to Supabase permissions.</p></div></details></div><div class="top-right"><span class="status-pill"><span class="dot"></span> All systems nominal</span><details class="account-menu" id="accountMenu">
+<header class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="mobile-menu" id="menuBtn" aria-label="Open menu">☰</button><div><div class="crumb">Workspace / <span id="crumb">Overview</span></div><h1 id="topTitle">Admin overview</h1></div><details class="clearance-menu" id="clearanceMenu" data-level="0"><summary class="clearance-trigger" aria-label="View your clearance information"><span aria-hidden="true">⛨</span><span id="clearanceBadgeText">CLEARANCE UNASSIGNED</span><span aria-hidden="true">⌄</span></summary><div class="clearance-popup"><strong>Clearance Information</strong><p><span id="clearancePrefix"></span><span class="clearance-highlight" id="clearanceDescription">Loading your clearance…</span></p><p class="clearance-preview-note" id="clearancePreviewNote">Preview badge only. Your administrator role has not yet been connected to Supabase permissions.</p></div></details></div><div class="top-right"><time id="liveClock" class="top-clock" aria-label="Current local time">--:-- --</time><span class="status-pill"><span class="dot"></span> All systems nominal</span><details class="account-menu" id="accountMenu">
   <summary class="account-trigger" aria-label="Open account menu"><span class="avatar">CA</span><span class="account-chevron" aria-hidden="true">⌄</span></summary>
   <div class="account-dropdown" role="group" aria-label="Account actions">
     <button class="account-logout" id="signOutBtn" type="button">↪ <span>Sign out</span></button>
@@ -100,7 +104,9 @@
 </details></div></header>
 <div class="content">
 <section class="section active" id="page-dashboard">
-  <div class="page-head"><div><h2>Good evening, Admin</h2><p>Here's what's happening across your demo environment.</p></div><div class="head-actions"><button id="exportBtn">↧ Export report</button><button class="primary" id="quickDevice">＋ Add device</button></div></div>
+  <div class="page-head"><div><h2 id="personalGreeting">Welcome!</h2><p id="personalSubtitle">Your workspace overview.</p></div><div class="head-actions"><button id="exportBtn">↧ Export report</button><button class="primary" id="quickDevice">＋ Add device</button></div></div>
+  <div class="search-panel"><input id="globalSearch" type="search" placeholder="Search laptops and your account..." aria-label="Search devices and own account"><button id="searchClear" type="button">Clear</button></div>
+  <div class="search-hits" id="globalSearchResults" hidden></div>
   <div class="grid stats">
     <div class="stat"><div class="stat-top">Registered devices <span class="stat-icon">▣</span></div><div class="stat-num" id="statTotal">12</div><div class="stat-foot">Across <span class="good">3 demo classrooms</span></div></div>
     <div class="stat"><div class="stat-top">Online now <span class="stat-icon">⌁</span></div><div class="stat-num" id="statOnline">9</div><div class="stat-foot"><span class="good">●</span> Simulated device status</div></div>
@@ -129,6 +135,23 @@
   <div class="card"><div class="card-head"><div><h3>Event history</h3><div class="card-sub">Newest events appear first.</div></div><select id="logFilter" style="max-width:160px"><option value="all">All events</option><option value="device">Device events</option><option value="policy">Policy events</option><option value="admin">Admin actions</option></select></div><div class="activity-list" id="allActivity"></div></div>
 </section>
 <section class="section" id="page-settings">
+  <div class="profile-box">
+    <h3>My account <span class="badge allowed">Cloud profile</span></h3>
+    <p>Choose the name shown in your greeting. It is saved to your own Supabase profile, never to another person's account.</p>
+    <div class="form-row"><input id="profileName" maxlength="80" placeholder="Your full display name" aria-label="Display name"><button class="primary" id="saveProfile" type="button">Save my name</button></div>
+    <p id="profileStatus" role="status" style="margin-top:10px">Sign in to load your profile.</p>
+  </div>
+  <div class="profile-box"><h3>Administration modules <span class="badge">Planned</span></h3><p>These are the management areas we agreed on. Privileged actions will remain unavailable until securely implemented.</p>
+    <div class="feature-list">
+    <div class="feature-tile"><h3>👤 Staff directory and invitations</h3><p>Search authorized staff, invite accounts, reset passwords, and manage clearance.</p><span class="badge">Not connected yet</span></div>
+    <div class="feature-tile"><h3>📢 Announcements and PINs</h3><p>Team targeting, higher-level PIN approval, and an announcement overlay.</p><span class="badge">Not connected yet</span></div>
+    <div class="feature-tile"><h3>▣ Device inventory permissions</h3><p>Level 2 delegates authorized device additions; Levels 3–4 have scoped access.</p><span class="badge">Not connected yet</span></div>
+    <div class="feature-tile"><h3>↶ Undo and Restore</h3><p>30-second Undo and recoverable history for supported changes.</p><span class="badge">Not connected yet</span></div>
+    <div class="feature-tile"><h3>🔒 Suspend / revoke access</h3><p>Time-limited suspension and permanent revocation with a lockout screen.</p><span class="badge">Not connected yet</span></div>
+    <div class="feature-tile"><h3>⛨ Cloud website rules</h3><p>Shared website policies with server-side clearance checks and audit history.</p><span class="badge">Current rules remain local demo data</span></div>
+    </div>
+  </div>
+
   <div class="page-head"><div><h2>Settings</h2><p>Configure this browser-based prototype.</p></div></div>
   <div class="grid two-col">
     <div class="card"><div class="card-head"><div><h3>Workspace preferences</h3><div class="card-sub">Saved in this browser.</div></div></div>
@@ -137,7 +160,7 @@
       <div class="setting"><div><strong>Workspace name</strong><p>Customize the label shown in the sidebar.</p></div><input id="workspaceName" value="Securly 2.0" style="max-width:150px"></div>
       <button class="primary" id="saveSettings" style="margin-top:15px">Save preferences</button>
     </div>
-    <div class="card"><div class="card-head"><div><h3>About this prototype</h3><div class="card-sub">Version 0.1.0 · Browser demo</div></div></div><p class="muted">Securly 2.0 is a learning prototype inspired by school device-management consoles.</p><p class="muted">Data is stored in this browser using localStorage. Clearing browser site data may erase it. Device status and policy decisions are simulated and are not connected to school systems.</p><div class="setting"><div><strong>Data storage</strong><p>Local browser storage</p></div><span class="badge online">Available</span></div><button id="clearAllData" class="danger" style="margin-top:15px">Clear saved demo data</button></div>
+    <div class="card"><div class="card-head"><div><h3>About this prototype</h3><div class="card-sub">Version 0.1.0 · Browser demo</div></div></div><p class="muted">Securly 2.0 is a learning prototype inspired by school device-management consoles.</p><p class="muted">Demo devices, test policies, and demo activity are stored in this browser using localStorage. Your personal display name is stored separately in Supabase after setup. Clearing browser site data may erase demo data. Device status and policy decisions are simulated and are not connected to school systems.</p><div class="setting"><div><strong>Data storage</strong><p>Local browser storage</p></div><span class="badge online">Available</span></div><button id="clearAllData" class="danger" style="margin-top:15px">Clear saved demo data</button></div>
   </div>
 </section>
 </div>
@@ -240,7 +263,7 @@ let devices=load("devices",defaultDevices),rules=load("rules",seedRules),logs=lo
 function save(){try{localStorage.setItem("sentinel_devices",JSON.stringify(devices));localStorage.setItem("sentinel_rules",JSON.stringify(rules));localStorage.setItem("sentinel_logs",JSON.stringify(logs));localStorage.setItem("sentinel_settings",JSON.stringify(settings));localStorage.setItem("sentinel_blockedCount",JSON.stringify(blockedCount))}catch{}}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function toast(msg){const el=$("toast");el.textContent=msg;el.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("show"),2600)}
-function addLog(type,title,detail){logs.unshift({type,icon:type==="device"?"▣":type==="policy"?"⛨":"⚙",title,detail,time:new Date().toLocaleString()});logs=logs.slice(0,250);save();renderLogs();renderDashActivity()}
+function addLog(type,title,detail){logs.unshift({type,icon:type==="device"?"▣":type==="policy"?"⛨":"⚙",title,detail,time:new Date().toLocaleString("en-US",{year:"numeric",month:"2-digit",day:"2-digit",hour:"numeric",minute:"2-digit",second:"2-digit"})});logs=logs.slice(0,250);save();renderLogs();renderDashActivity()}
 function statusBadge(s){return `<span class="badge ${s==="Online"?"online":"offline"}"><span class="dot" style="background:${s==="Online"?"var(--green)":"#8997ad"}"></span>${s}</span>`}
 function renderStats(){$("statTotal").textContent=devices.length;$("statOnline").textContent=devices.filter(d=>d.status==="Online").length;$("statBlocked").textContent=blockedCount;$("statAlerts").textContent=logs.filter(l=>l.type==="policy").length;$("deviceCountLabel").textContent=`${devices.length} registered devices`}
 function renderDashDevices(){$("dashDevices").innerHTML=devices.slice(0,5).map(d=>`<tr><td><div class="device"><div class="device-icon">${d.kind==="desktop"?"▰":"▱"}</div><div><b>${esc(d.name)}</b><small>${d.kind==="desktop"?"Desktop":"Chromebook demo"}</small></div></div></td><td>${esc(d.room)}</td><td>${statusBadge(d.status)}</td><td class="muted">${esc(d.last)}</td></tr>`).join("")||`<tr><td colspan="4" class="empty">No devices registered yet.</td></tr>`}
@@ -333,5 +356,93 @@ async function loadUserClearance(userId){
     }
   }
 }
+</script>
+
+<script>
+// First update: live local clock, authenticated profile display, and demo device search.
+let currentProfileUserId=null;
+let currentDisplayName="";
+let currentLevelForGreeting=0;
+const EASTERN_TIME_ZONE="America/New_York";
+function refreshDashboardClock(){
+  const clock=document.getElementById("liveClock");
+  if(clock)clock.textContent=new Intl.DateTimeFormat("en-US",{timeZone:EASTERN_TIME_ZONE,hour:"numeric",minute:"2-digit",hour12:true}).format(new Date());
+  const greeting=document.getElementById("personalGreeting");
+  if(!greeting)return;
+  const hour=Number(new Intl.DateTimeFormat("en-US",{timeZone:EASTERN_TIME_ZONE,hour:"numeric",hourCycle:"h23"}).format(new Date()));
+  const salutation=hour<12?"Good morning":hour<17?"Good afternoon":"Good evening";
+  greeting.textContent=`${salutation}, ${currentDisplayName||"Administrator"}!`;
+  const subtitle={1:"Here's what's happening in your classroom today.",2:"Here's what's happening across your school today.",3:"Here's what's happening across your district today.",4:"Here's your system overview and latest activity."};
+  document.getElementById("personalSubtitle").textContent=subtitle[currentLevelForGreeting]||"Here's what's happening in your demo workspace today.";
+}
+refreshDashboardClock();
+setInterval(refreshDashboardClock,15000);
+async function loadPersonalProfile(user){
+  const uid=user?.id||null;
+  currentProfileUserId=uid;
+  currentDisplayName="";
+  const field=document.getElementById("profileName"),status=document.getElementById("profileStatus");
+  if(field)field.value="";
+  if(!uid){if(status)status.textContent="Sign in to load your profile.";refreshDashboardClock();return;}
+  if(!authClient)return;
+  if(status)status.textContent="Loading cloud profile…";
+  try{
+    const {data,error}=await authClient.from("staff_profiles").select("display_name").eq("user_id",uid).maybeSingle();
+    if(currentProfileUserId!==uid)return;
+    if(error)throw error;
+    // Do not publish someone else's identity or assume an email prefix is a real name.
+    const name=String(data?.display_name||"").trim();
+    currentDisplayName=name;
+    if(field)field.value=name;
+    if(status)status.textContent=name?"Your display name is saved in Supabase.":"No profile name yet. Type your name and save.";
+  }catch(err){
+    if(currentProfileUserId!==uid)return;
+    if(status)status.textContent="Cloud profile is not ready. Run the included SQL setup, then reload.";
+    console.warn("Profile load:",err);
+  }
+  refreshDashboardClock();
+}
+document.getElementById("saveProfile").addEventListener("click",async()=>{
+  const status=document.getElementById("profileStatus"),btn=document.getElementById("saveProfile");
+  const name=document.getElementById("profileName").value.trim().replace(/\s+/g," ");
+  if(!currentProfileUserId){status.textContent="Please sign in first.";return;}
+  if(name.length<2||name.length>80){status.textContent="Enter a display name between 2 and 80 characters.";return;}
+  btn.disabled=true;status.textContent="Saving…";
+  try{
+    const {error}=await authClient.from("staff_profiles").upsert({user_id:currentProfileUserId,display_name:name},{onConflict:"user_id"});
+    if(error)throw error;
+    currentDisplayName=name;
+    status.textContent="Display name saved to Supabase.";
+    refreshDashboardClock();
+  }catch(err){status.textContent="Save failed. Check that the SQL setup was run and you're signed in.";console.warn(err)}
+  finally{btn.disabled=false;}
+});
+// Only search own profile + fictional locally saved demo devices in this phase.
+function searchDemoDirectory(){
+  const q=document.getElementById("globalSearch").value.trim().toLowerCase();
+  const results=document.getElementById("globalSearchResults");
+  if(!q){results.hidden=true;results.innerHTML="";return;}
+  const ownName=currentDisplayName;
+  const hits=[];
+  if(ownName&&ownName.toLowerCase().includes(q))hits.push(`<div class="search-hit"><strong>${esc(ownName)}</strong><small>Your signed-in profile • Supabase</small></div>`);
+  for(const d of devices.filter(d=>[d.name,d.room,d.user].some(v=>String(v).toLowerCase().includes(q))).slice(0,20)){
+    hits.push(`<div class="search-hit"><strong>${esc(d.name)}</strong><small>${esc(d.room)} • ${esc(d.status)} • Demo laptop/device</small></div>`);
+  }
+  results.innerHTML=hits.join("")||'<div class="search-hit">No matching accessible demo records.</div>';
+  results.hidden=false;
+}
+document.getElementById("globalSearch").addEventListener("input",searchDemoDirectory);
+document.getElementById("searchClear").addEventListener("click",()=>{document.getElementById("globalSearch").value="";searchDemoDirectory()});
+// Hook into the existing authenticated clearance loader without changing session handling.
+const originalClearanceLoader=loadUserClearance;
+loadUserClearance=async function(userId){
+  const p=originalClearanceLoader(userId);
+  const profilePromise=authClient?.auth.getUser().then(({data})=>data?.user?.id===userId?loadPersonalProfile(data.user):null).catch(()=>{});
+  await Promise.all([p,profilePromise]);
+  currentLevelForGreeting=Number(document.getElementById("clearanceMenu")?.dataset.level||0);
+  refreshDashboardClock();
+};
+const originalResetBadge=resetClearanceBadge;
+resetClearanceBadge=function(...args){originalResetBadge(...args);currentLevelForGreeting=0;currentProfileUserId=null;currentDisplayName="";refreshDashboardClock();};
 </script>
 </body>
