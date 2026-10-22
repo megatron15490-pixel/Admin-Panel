@@ -33,6 +33,7 @@
 </style>
 
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
 <section class="login-screen" id="loginScreen" aria-label="Sign in to Securly 2.0">
@@ -126,39 +127,63 @@
 <script>
 const $=id=>document.getElementById(id);
 
-// LOCAL TEST CREDENTIALS: change these two values to customize this demo login.
-// Important: browser-only credentials can be inspected in the page source; do not use real passwords.
-const DEMO_EMAIL = "caiden.obrien182@gmail.com";
-const DEMO_PASSWORD = "Mega1221";
+// Supabase publishable key is designed to be public. Never put a secret/service-role key here.
+const SUPABASE_URL = "https://jsynxrwnsiqlzhclwszz.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_6uLH3z9dIHLKaODYX9En3Q_RabS0Fx3";
 const loginScreen = $("loginScreen"), adminApp = $("adminApp"), loginForm = $("loginForm"), loginError = $("loginError");
-function lockPanel(){const menu=document.getElementById("accountMenu");if(menu)menu.open=false;try{localStorage.removeItem("securly_demo_remembered");sessionStorage.removeItem("securly_demo_session")}catch(e){}adminApp.style.display="none";loginScreen.style.display="grid";loginForm.reset();turnstileToken="";if(window.turnstile){try{window.turnstile.reset()}catch(e){}}loginError.classList.remove("show");$("loginEmail").focus()}
-function unlockPanel(){loginScreen.style.display="none";adminApp.style.display="grid";loginError.classList.remove("show")}
-let turnstileToken = "";
-window.turnstileSuccess = function(token){ turnstileToken = token || ""; loginError.classList.remove("show"); };
-window.turnstileExpired = function(){ turnstileToken = ""; };
-function sentinelLogin(){
-  if(!turnstileToken){
-    loginError.textContent="Complete the Cloudflare verification first. If it is missing, open the site in a regular browser on a hosted page.";
-    loginError.classList.add("show");
-    return;
-  }
-  const email = $("loginEmail").value.trim().toLowerCase();
-  const password = $("loginPassword").value;
-  if (email === DEMO_EMAIL.toLowerCase() && password === DEMO_PASSWORD) {
-    try{if($("rememberMe").checked){localStorage.setItem("securly_demo_remembered","yes");sessionStorage.removeItem("securly_demo_session")}else{sessionStorage.setItem("securly_demo_session","yes");localStorage.removeItem("securly_demo_remembered")}}catch(e){}
-    unlockPanel();
-  } else {
-    loginError.textContent = "Incorrect email or password. Please try again.";
-    loginError.classList.add("show");
-    $("loginPassword").value = "";
-    $("loginPassword").focus();
-  }
+const SESSION_KEY = "securly2_auth_session";
+let rememberSession = false;
+const sessionStorageAdapter = {
+  getItem(key) { return sessionStorage.getItem(key) ?? localStorage.getItem(key); },
+  setItem(key, value) { if (rememberSession || localStorage.getItem(SESSION_KEY) !== null) {localStorage.setItem(key,value);sessionStorage.removeItem(key);} else {sessionStorage.setItem(key,value);localStorage.removeItem(key);} },
+  removeItem(key) {sessionStorage.removeItem(key);localStorage.removeItem(key);}
+};
+// Keep Supabase's session in sessionStorage unless Remember me is checked.
+const authClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, storage:sessionStorageAdapter, storageKey:SESSION_KEY}
+});
+function lockPanel(){
+  const menu=$("accountMenu");if(menu)menu.open=false;
+  adminApp.style.display="none";loginScreen.style.display="grid";
+  loginForm.reset();turnstileToken="";
+  if(window.turnstile){try{window.turnstile.reset()}catch(e){}}
+  loginError.classList.remove("show");
 }
-loginForm.addEventListener("submit",e=>{e.preventDefault();sentinelLogin()});
-
+function unlockPanel(){loginScreen.style.display="none";adminApp.style.display="grid";loginError.classList.remove("show");$("loginPassword").value="";}
+let turnstileToken = "";
+window.turnstileSuccess = function(token){turnstileToken=token||"";loginError.classList.remove("show");};
+window.turnstileExpired = function(){turnstileToken="";};
+async function sentinelLogin(){
+  if(!authClient){loginError.textContent="Authentication library did not load. Check your connection and reload.";loginError.classList.add("show");return;}
+  if(!turnstileToken){loginError.textContent="Complete the Cloudflare verification first.";loginError.classList.add("show");return;}
+  const email=$("loginEmail").value.trim().toLowerCase(),password=$("loginPassword").value;
+  const submit=loginForm.querySelector('[type="submit"]');if(submit)submit.disabled=true;
+  loginError.classList.remove("show");
+  rememberSession=$("rememberMe").checked;
+  try {
+    // The Turnstile token is only checked for presence in this prototype.
+    // Production protection requires verification on a trusted backend.
+    const {data,error}=await authClient.auth.signInWithPassword({email,password});
+    if(error)throw error;
+    if(!data.session)throw new Error("No active session was returned.");
+    unlockPanel();
+  }catch(e){loginError.textContent="Sign in failed. Check your email, password, and account confirmation.";loginError.classList.add("show");$("loginPassword").value="";}
+  finally{if(submit)submit.disabled=false;}
+}
+loginForm.addEventListener("submit",e=>{e.preventDefault();void sentinelLogin();});
+async function signOut(){if(authClient){try{await authClient.auth.signOut()}catch(e){}}sessionStorage.removeItem(SESSION_KEY);localStorage.removeItem(SESSION_KEY);rememberSession=false;lockPanel();}
+if(authClient){
+  authClient.auth.onAuthStateChange((event,session)=>{
+    if(event==="SIGNED_OUT")lockPanel();
+    else if(session?.user)unlockPanel();
+  });
+  authClient.auth.getSession().then(({data,error})=>{
+    if(!error && data?.session?.user)unlockPanel();else lockPanel();
+  }).catch(()=>lockPanel());
+}else{loginError.textContent="Unable to load Supabase Authentication. Reload the page.";loginError.classList.add("show");}
 
 $("togglePassword").addEventListener("click",()=>{const field=$("loginPassword"),show=field.type==="password";field.type=show?"text":"password";$("togglePassword").textContent=show?"Hide":"Show";$("togglePassword").setAttribute("aria-label",show?"Hide password":"Show password")});
-$("signOutBtn").addEventListener("click",lockPanel);
+$("signOutBtn").addEventListener("click",()=>{void signOut()});
 // Close the account menu when clicking elsewhere or pressing Escape.
 document.addEventListener("click",(event)=>{
   const menu=$("accountMenu");
@@ -237,7 +262,7 @@ document.querySelector(".brand strong").textContent = "Securly 2.0";
 const workspaceField = document.getElementById("workspaceName");
 if (workspaceField) workspaceField.value = "Securly 2.0";
 renderAll();
-// Restore demo sign-in state without storing a password.
-try{if(localStorage.getItem("securly_demo_remembered")==="yes" || sessionStorage.getItem("securly_demo_session")==="yes"){unlockPanel()}}catch(e){}
+// Supabase restores verified authentication sessions above; old demo login flags are ignored.
+try{localStorage.removeItem("securly_demo_remembered");sessionStorage.removeItem("securly_demo_session");}catch(e){}
 </script>
 </body>
