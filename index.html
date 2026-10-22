@@ -47,6 +47,8 @@
 .clearance-menu[data-level="2"] .clearance-highlight{color:#93c5fd}
 .clearance-menu[data-level="3"] .clearance-trigger{background:#451b25;border-color:#ef4444;color:#fca5a5}
 .clearance-menu[data-level="3"] .clearance-highlight{color:#fca5a5}
+.clearance-menu[data-level="4"] .clearance-trigger{background:#492911;border-color:#f97316;color:#fdba74}
+.clearance-menu[data-level="4"] .clearance-highlight{color:#fdba74}
 @media(max-width:700px){.clearance-menu{margin-left:8px}.clearance-trigger{padding:7px;font-size:10px}.clearance-popup{right:0}}
 </style>
 
@@ -302,7 +304,7 @@ function resetClearanceBadge(message="Clearance not assigned"){
   if(note)note.textContent="Contact your administrator if this seems incorrect.";
 }
 function displayVerifiedClearance(level){
-  const roles={1:"Teacher",2:"School Administrator",3:"District Administrator"};
+  const roles={1:"Teacher",2:"School Administrator",3:"District Administrator",4:"System Manager"};
   if(!Object.prototype.hasOwnProperty.call(roles,level))return;
   const menu=document.getElementById("clearanceMenu");
   menu.dataset.level=String(level);
@@ -322,7 +324,7 @@ async function loadUserClearance(userId){
     if(requestId!==clearanceRequestId)return;
     if(error)throw error;
     const level=Number(data?.clearance_level);
-    if([1,2,3].includes(level))displayVerifiedClearance(level);
+    if([1,2,3,4].includes(level))displayVerifiedClearance(level);
     else resetClearanceBadge("No clearance has been assigned to your account.");
   }catch(error){
     if(requestId===clearanceRequestId){
