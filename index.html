@@ -192,6 +192,33 @@
       <form id="manageAccountForm" style="display:grid;gap:8px;margin:12px 0"><strong>Manage an existing account</strong><input id="targetUserId" required placeholder="Staff account UUID"><select id="targetAction"><option value="reset_password">Send password reset</option><option value="set_clearance">Change clearance level</option><option value="suspend">Suspend until a date/time</option><option value="revoke">Revoke access indefinitely</option><option value="restore_access">Restore access</option></select><select id="targetClearance" hidden><option value="1">Level 1 · Teacher</option><option value="2">Level 2 · School Administrator</option><option value="3">Level 3 · District Administrator</option></select><input id="restrictionReason" maxlength="500" placeholder="Reason for restriction (if applicable)" hidden><label id="suspendUntilLabel" class="muted" hidden>Suspension ends at (local time)</label><input id="suspendUntil" type="datetime-local" hidden><button class="primary">Apply account action</button><small id="manageAccountStatus" class="muted"></small></form>
       <form id="devicePermissionForm" style="display:grid;gap:8px;margin:12px 0"><strong>Device permissions</strong><input id="permissionUserId" required placeholder="Staff account UUID"><label><input id="permissionCanAdd" type="checkbox"> Can add laptops</label><label><input id="permissionCanEdit" type="checkbox"> Can edit laptops</label><button>Save device permissions</button><small id="devicePermissionStatus" class="muted"></small></form>
       <form id="pinGrantForm" style="display:grid;gap:8px;margin:12px 0"><strong>Issue announcement PIN</strong><input id="pinTargetUserId" required placeholder="Teacher account UUID"><input id="pinValue" required inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" placeholder="4–8 digit PIN"><select id="pinTargetLevel"><option value="2">May announce to Level 2</option><option value="3">May announce to Level 3</option><option value="4">May announce to Level 4</option></select><label class="muted" for="pinExpires">PIN expires</label><input id="pinExpires" type="datetime-local" required><button>Issue PIN</button><small id="pinGrantStatus" class="muted"></small></form>
+      <form id="levelPinForm" style="display:grid;gap:8px;margin:12px 0;padding-top:12px;border-top:1px solid var(--line)">
+        <strong>Level PINs & master PIN</strong>
+        <p class="muted">Set or rotate the shared PIN for a clearance level, or the master PIN. PINs are stored as hashes, not readable text.</p>
+        <label class="muted" for="levelPinTarget">PIN type</label>
+        <select id="levelPinTarget"><option value="1">Level 1 PIN</option><option value="2">Level 2 PIN</option><option value="3">Level 3 PIN</option><option value="4">Level 4 PIN</option><option value="master">Master PIN · unlocks any level</option></select>
+        <input id="levelPinValue" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{4,8}" minlength="4" maxlength="8" required placeholder="New 4–8 digit PIN">
+        <button class="primary">Save / rotate PIN</button>
+        <small id="levelPinStatus" class="muted" role="status"></small>
+      </form>
+      <div style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px">
+        <strong>Groups & buildings</strong>
+        <p class="muted">Level 2+ can create a group/building and assign existing accounts to it. New invitations may require the admin-management function to be updated too.</p>
+        <form id="createGroupForm" style="display:grid;gap:8px;margin:10px 0">
+          <input id="newGroupName" maxlength="100" required placeholder="Group / team name">
+          <input id="newGroupBuilding" maxlength="120" required placeholder="Building (e.g. Middle School)">
+          <button>Create group / building</button>
+          <small id="createGroupStatus" class="muted" role="status"></small>
+        </form>
+        <form id="assignGroupForm" style="display:grid;gap:8px;margin:10px 0">
+          <input id="groupTargetUserId" required placeholder="Account UUID to assign">
+          <select id="groupSelect"><option value="">Load groups first</option></select>
+          <button>Assign account to group</button>
+          <small id="assignGroupStatus" class="muted" role="status"></small>
+        </form>
+        <button id="refreshGroups">Refresh groups</button>
+        <div id="groupList" class="rule-list" style="margin-top:10px"><div class="empty">Sign in as Level 2+ to load groups.</div></div>
+      </div>
       <div class="setting"><div><strong>Restore / Undo</strong><p>Recent changes and supported deleted records.</p></div><button id="refreshHistory">View history</button></div>
     </div>
   </div>
@@ -612,6 +639,7 @@ async function loadCloudAnnouncements(){const list=document.getElementById('clou
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-cloud-rule-delete]');if(!b)return;const r=cloudRules.find(x=>x.id===b.dataset.cloudRuleDelete);if(!r||!confirm(`Remove ${r.domain}? It will remain recoverable in Restore Center.`))return;try{showUndo('Website rule removed',{table:'website_rules',id:r.id,action:'delete',record:r});const {error}=await authClient.from('website_rules').update({deleted_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',r.id);if(error)throw error;await loadCloudRules();await loadCloudHistory();cloudToast('Website rule removed.')}catch(err){cloudToast('Could not remove rule. Check permissions.');console.error(err)}});
 document.getElementById('cloudAnnouncementForm')?.addEventListener('submit',async e=>{e.preventDefault();const status=document.getElementById('announcementStatus');if(!cloudReady()){status.textContent='Sign in first.';return}await cloudLoadOrganization();const level=cloudLevel();if(!cloudOrgId){status.textContent='Organization assignment is required.';return}const target=Number(document.getElementById('announcementLevel').value);const pin=document.getElementById('announcementPin').value;if(level>=2&&target>=level){status.textContent='You can only send announcements to lower clearance levels.';return}if(level<2){if(!pin){status.textContent='Enter the PIN your administrator gave you.';return}const {data:pinOK,error:pinError}=await authClient.rpc('verify_announcement_pin',{p_pin:pin,p_target_level:target});if(pinError||pinOK!==true){status.textContent='That PIN is incorrect, expired, or not authorized for this recipient level.';return}}const teams=[...document.querySelectorAll('input[name="announcementTeam"]:checked')].map(x=>x.value);status.textContent='Publishing…';try{if(level===1){const {error}=await authClient.rpc('send_announcement_with_pin',{p_pin:pin,p_organization_id:cloudOrgId,p_title:document.getElementById('announcementTitle').value.trim(),p_message:document.getElementById('announcementMessage').value.trim(),p_target_level:target,p_target_teams:teams});if(error)throw error}else{const payload={organization_id:cloudOrgId,title:document.getElementById('announcementTitle').value.trim(),message:document.getElementById('announcementMessage').value.trim(),target_levels:[target],target_teams:teams,sender_id:currentProfileUserId};const {error}=await authClient.from('announcements').insert(payload);if(error)throw error}status.textContent='Announcement published.';e.target.reset();await loadCloudAnnouncements();await loadCloudHistory();cloudToast('Announcement published.')}catch(err){status.textContent=err.message||'Publish failed. Check permissions and SQL setup.';console.error(err)}});
 document.getElementById('refreshAnnouncements')?.addEventListener('click',loadCloudAnnouncements);
+document.addEventListener('click',e=>{if(e.target.closest('[data-page="admin"], [data-nav="admin"]'))void loadOrganizationGroups()});
 async function loadCloudHistory(){const list=document.getElementById('cloudHistoryList');if(!list||!cloudReady())return;try{await cloudLoadOrganization();if(!cloudOrgId){list.innerHTML='<div class="empty">Organization assignment is required.</div>';return}const {data,error}=await authClient.from('activity_logs').select('id,action,table_name,record_id,created_at,actor_id,old_data,new_data,environment').eq('organization_id',cloudOrgId).order('created_at',{ascending:false}).limit(100);if(error)throw error;list.innerHTML=(data||[]).map(l=>`<div class="activity"><div class="activity-icon">${l.action==='DELETE'?'🗑':l.action==='INSERT'?'＋':'✎'}</div><div><b>${esc(l.action)} · ${esc(l.table_name)}</b><p>Record ${esc(l.record_id||'')} · ${esc(l.environment||'production')}</p><time>${esc(formatExactTime(l.created_at))}</time>${(l.action==='DELETE'||(l.new_data&&l.new_data.deleted_at))&&['devices','website_rules'].includes(l.table_name)?` <button data-restore-table="${l.table_name}" data-restore-id="${l.record_id}" data-restore-log="${l.id}">Restore</button>`:''}</div></div>`).join('')||'<div class="empty">No recorded cloud changes yet.</div>';}catch(e){list.innerHTML='<div class="empty">Cloud activity history could not load. Run the companion SQL and check permissions.</div>';console.warn(e)}}
 document.getElementById('refreshCloudHistory')?.addEventListener('click',loadCloudHistory);document.getElementById('refreshHistory')?.addEventListener('click',()=>{go('admin');void loadCloudHistory()});
 document.getElementById('cloudHistoryList')?.addEventListener('click',async e=>{const b=e.target.closest('[data-restore-table]');if(!b)return;if(!confirm('Restore this deleted record?'))return;const table=b.dataset.restoreTable,id=b.dataset.restoreId;try{const {error}=await authClient.from(table).update({deleted_at:null,updated_at:new Date().toISOString()}).eq('id',id);if(error)throw error;await loadCloudDevices();await loadCloudRules();await loadCloudHistory();cloudToast('Record restored.')}catch(err){alert('Restore failed. The record may have been deleted permanently or you may not have permission.');console.error(err)}});
@@ -635,6 +663,51 @@ const targetAction=document.getElementById('targetAction');function updateTarget
 document.getElementById('manageAccountForm')?.addEventListener('submit',async e=>{e.preventDefault();const action=targetAction.value;const body={action,target_user_id:document.getElementById('targetUserId').value.trim()};if(action==='set_clearance')body.clearance_level=Number(document.getElementById('targetClearance').value);if(['suspend','revoke'].includes(action))body.reason=document.getElementById('restrictionReason').value.trim();if(action==='suspend'){const local=document.getElementById('suspendUntil').value;if(!local){setStatus('manageAccountStatus','Choose an end date and time.');return}body.expires_at=new Date(local).toISOString()}if(action==='reset_password')body.redirect_to=location.origin;await invokeAdmin(body,'manageAccountStatus')});
 document.getElementById('devicePermissionForm')?.addEventListener('submit',async e=>{e.preventDefault();await invokeAdmin({action:'set_device_permission',target_user_id:document.getElementById('permissionUserId').value.trim(),can_add_devices:document.getElementById('permissionCanAdd').checked,can_edit_devices:document.getElementById('permissionCanEdit').checked},'devicePermissionStatus')});
 document.getElementById('pinGrantForm')?.addEventListener('submit',async e=>{e.preventDefault();const local=document.getElementById('pinExpires').value;if(!local){setStatus('pinGrantStatus','Choose an expiration time.');return}await invokeAdmin({action:'create_announcement_pin',target_user_id:document.getElementById('pinTargetUserId').value.trim(),pin:document.getElementById('pinValue').value,allowed_levels:[Number(document.getElementById('pinTargetLevel').value)],allowed_teams:[],expires_at:new Date(local).toISOString()},'pinGrantStatus')});
+// Shared level/master PIN administration and organization groups.
+async function loadOrganizationGroups(){
+  const list=document.getElementById('groupList'),select=document.getElementById('groupSelect');
+  if(!cloudReady()||cloudLevel()<2){if(list)list.innerHTML='<div class="empty">Level 2+ administrator access required.</div>';return}
+  await cloudLoadOrganization();if(!cloudOrgId)return;
+  try{
+    const {data,error}=await authClient.from('organization_groups').select('id,name,building,created_at').eq('organization_id',cloudOrgId).order('building').order('name');
+    if(error)throw error;
+    const rows=data||[];
+    if(select)select.innerHTML='<option value="">Choose group / building</option>'+rows.map(g=>`<option value="${esc(g.id)}">${esc(g.name)} · ${esc(g.building)}</option>`).join('');
+    if(list)list.innerHTML=rows.map(g=>`<div class="rule"><div><strong>${esc(g.name)}</strong><small>${esc(g.building)} · ${esc(formatExactTime(g.created_at))}</small></div></div>`).join('')||'<div class="empty">No groups created yet.</div>';
+  }catch(err){if(list)list.innerHTML='<div class="empty">Could not load groups. Run the PIN/groups SQL migration first.</div>';console.warn(err)}
+}
+document.getElementById('refreshGroups')?.addEventListener('click',loadOrganizationGroups);
+document.getElementById('createGroupForm')?.addEventListener('submit',async e=>{
+  e.preventDefault();const status=document.getElementById('createGroupStatus');
+  if(!cloudReady()||cloudLevel()<2){status.textContent='Level 2+ administrator access required.';return}
+  await cloudLoadOrganization();if(!cloudOrgId){status.textContent='Organization assignment is required.';return}
+  status.textContent='Creating…';
+  const {data,error}=await authClient.rpc('create_organization_group',{p_org:cloudOrgId,p_name:document.getElementById('newGroupName').value.trim(),p_building:document.getElementById('newGroupBuilding').value.trim()});
+  if(error){status.textContent=error.message||'Could not create group.';return}
+  status.textContent='Group created.';e.target.reset();await loadOrganizationGroups();
+});
+document.getElementById('assignGroupForm')?.addEventListener('submit',async e=>{
+  e.preventDefault();const status=document.getElementById('assignGroupStatus');
+  if(!cloudReady()||cloudLevel()<2){status.textContent='Level 2+ administrator access required.';return}
+  const userId=document.getElementById('groupTargetUserId').value.trim(),groupId=document.getElementById('groupSelect').value;
+  if(!groupId){status.textContent='Choose a group first.';return}
+  status.textContent='Assigning…';
+  const {data,error}=await authClient.rpc('assign_member_to_group',{p_user_id:userId,p_group_id:groupId});
+  if(error||data!==true){status.textContent=error?.message||'Assignment failed. Check the account and your permissions.';return}
+  status.textContent='Account assigned to group/building.';
+});
+document.getElementById('levelPinForm')?.addEventListener('submit',async e=>{
+  e.preventDefault();const status=document.getElementById('levelPinStatus');
+  if(!cloudReady()||cloudLevel()<2){status.textContent='Level 2+ administrator access required.';return}
+  await cloudLoadOrganization();if(!cloudOrgId){status.textContent='Organization assignment is required.';return}
+  const choice=document.getElementById('levelPinTarget').value,pin=document.getElementById('levelPinValue').value;
+  if(!/^[0-9]{4,8}$/.test(pin)){status.textContent='Use a 4–8 digit PIN.';return}
+  const {error}=await authClient.rpc('set_organization_announcement_pin',{p_org:cloudOrgId,p_level:choice==='master'?null:Number(choice),p_pin:pin,p_is_master:choice==='master'});
+  if(error){status.textContent=error.message||'Could not save PIN. Check migration and clearance.';return}
+  status.textContent=choice==='master'?'Master PIN saved.':'Level '+choice+' PIN saved.';
+  e.target.reset();
+});
+
 // Enforce a server-saved suspension screen on each authenticated session. The database policy also rejects restricted access.
 async function checkAccountRestriction(){if(!cloudReady())return;try{const {data,error}=await authClient.from('account_restrictions').select('id,reason,expires_at,revoked_at').eq('user_id',currentProfileUserId).is('revoked_at',null).limit(1);if(error)throw error;const active=(data||[]).find(r=>!r.expires_at||new Date(r.expires_at)>new Date());if(active){document.getElementById('adminApp').style.display='none';document.getElementById('loginScreen').style.display='grid';loginError.textContent=active.expires_at?`Your administrator has suspended your access until ${formatExactTime(active.expires_at)}. Contact your administrator if you believe this is an error.`:'Your administrator has revoked your access. Contact your administrator.';loginError.classList.add('show');}}catch(e){console.warn('Restriction check:',e)}}
 if(authClient)authClient.auth.onAuthStateChange((event,session)=>{if(session?.user){const banner=document.getElementById('demoBanner');if(banner){banner.style.display='flex';banner.innerHTML='<strong>☁ CONNECTING TO CLOUD</strong><span>Loading shared organization data from Supabase…</span>';}for(const id of ['statTotal','statOnline','statBlocked','statAlerts']){const el=document.getElementById(id);if(el)el.textContent='…'}const dash=document.getElementById('dashDevices');if(dash)dash.innerHTML='<tr><td colspan="4" class="empty">Loading shared laptop inventory…</td></tr>';const activity=document.getElementById('dashActivity');if(activity)activity.innerHTML='<div class="empty">Loading recorded cloud activity…</div>';setTimeout(()=>{void loadCloudDevices();void loadCloudRules();void loadCloudAnnouncements();void loadCloudHistory();void checkAccountRestriction()},0)}else{const banner=document.getElementById('demoBanner');if(banner){banner.style.display='flex';banner.innerHTML='<strong>ⓘ SIGN IN REQUIRED</strong><span>Sign in to load shared cloud records.</span>';}}});
