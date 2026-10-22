@@ -330,6 +330,7 @@ try{localStorage.removeItem("securly_demo_remembered");sessionStorage.removeItem
 // Clearance labels reflect the current authenticated user's Supabase record.
 // This is display-only. Enforce permissions independently with database RLS.
 let clearanceRequestId = 0;
+let loadedClearanceUserId = null;
 function resetClearanceBadge(message="Clearance not assigned"){
   clearanceRequestId++;
   const menu=document.getElementById("clearanceMenu");
@@ -354,7 +355,15 @@ function displayVerifiedClearance(level){
   document.getElementById("clearancePrefix").textContent="Your Administrator has assigned you with ";
 }
 async function loadUserClearance(userId){
-  resetClearanceBadge("Loading your assigned clearance…");
+  const menu=document.getElementById("clearanceMenu");
+  // Keep the last verified clearance visible during background refreshes for the same account.
+  // Only show the loading/unassigned state when there is no verified value or the account changed.
+  const hasVerifiedLevel=menu && ["1","2","3","4"].includes(menu.dataset.level);
+  const sameAccount=loadedClearanceUserId===userId;
+  if(!sameAccount || !hasVerifiedLevel){
+    loadedClearanceUserId=userId||null;
+    resetClearanceBadge("Loading your assigned clearance…");
+  }
   const requestId=clearanceRequestId;
   if(!authClient||!userId)return;
   try{
@@ -364,10 +373,16 @@ async function loadUserClearance(userId){
     if(error)throw error;
     const level=Number(data?.clearance_level);
     if([1,2,3,4].includes(level))displayVerifiedClearance(level);
-    else resetClearanceBadge("No clearance has been assigned to your account.");
+    else {
+      loadedClearanceUserId=userId;
+      resetClearanceBadge("No clearance has been assigned to your account.");
+    }
   }catch(error){
     if(requestId===clearanceRequestId){
-      resetClearanceBadge("Unable to load your clearance from Supabase.");
+      // If a verified clearance was already shown, keep it visible during a transient
+      // network failure rather than flashing an unassigned badge.
+      const currentLevel=Number(document.getElementById("clearanceMenu")?.dataset.level||0);
+      if(![1,2,3,4].includes(currentLevel)) resetClearanceBadge("Unable to load your clearance from Supabase.");
       console.warn("Clearance lookup failed:",error);
     }
   }
@@ -395,10 +410,11 @@ refreshDashboardClock();
 setInterval(refreshDashboardClock,15000);
 async function loadPersonalProfile(user){
   const uid=user?.id||null;
+  const previousUid=currentProfileUserId;
   currentProfileUserId=uid;
-  currentDisplayName="";
+  if(previousUid!==uid) currentDisplayName="";
   const field=document.getElementById("profileName"),status=document.getElementById("profileStatus");
-  if(field)field.value="";
+  if(field && previousUid!==uid)field.value="";
   if(!uid){if(status)status.textContent="Sign in to load your profile.";refreshDashboardClock();return;}
   if(!authClient)return;
   if(status)status.textContent="Loading cloud profile…";
@@ -477,16 +493,24 @@ function searchDemoDirectory(){
 }
 document.getElementById("globalSearch").addEventListener("input",searchDemoDirectory);
 document.getElementById("searchClear").addEventListener("click",()=>{document.getElementById("globalSearch").value="";searchDemoDirectory()});
-// Hook into the existing authenticated clearance loader without changing session handling.
+// Refresh profile and clearance together, without clearing already verified values first.
 const originalClearanceLoader=loadUserClearance;
 loadUserClearance=async function(userId){
-  const p=originalClearanceLoader(userId);
-  const profilePromise=authClient?.auth.getUser().then(({data})=>data?.user?.id===userId?loadPersonalProfile(data.user):null).catch(()=>{});
-  await Promise.all([p,profilePromise]);
+  const profilePromise=loadPersonalProfile({id:userId}).catch(err=>console.warn("Profile load:",err));
+  const clearancePromise=originalClearanceLoader(userId);
+  await Promise.all([clearancePromise,profilePromise]);
   currentLevelForGreeting=Number(document.getElementById("clearanceMenu")?.dataset.level||0);
   refreshDashboardClock();
 };
-const originalResetBadge=resetClearanceBadge;
-resetClearanceBadge=function(...args){originalResetBadge(...args);currentLevelForGreeting=0;currentProfileUserId=null;currentDisplayName="";refreshDashboardClock();};
+// Clear personal display state only on an actual sign-out, not during clearance refreshes.
+const originalLockPanel=lockPanel;
+lockPanel=function(){
+  originalLockPanel();
+  loadedClearanceUserId=null;
+  currentProfileUserId=null;
+  currentDisplayName="";
+  currentLevelForGreeting=0;
+  refreshDashboardClock();
+};
 </script>
 </body>
