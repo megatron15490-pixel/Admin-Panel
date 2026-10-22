@@ -31,13 +31,13 @@
     <div class="login-field"><label for="loginPassword">Password</label><div class="password-wrap"><input id="loginPassword" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" required><button type="button" id="togglePassword" aria-label="Show password">Show</button></div></div>
     <div class="turnstile-area">      
 <div class="cf-turnstile"
-    data-sitekey="0x4AAAAAAFgIV8CuYQh0fZoR"
+     data-sitekey="0x4AAAAAAFgIV8CuYQh0fZoR"
      data-theme="dark"
      data-callback="turnstileSuccess"
      data-expired-callback="turnstileExpired"
      data-error-callback="turnstileExpired">
 </div>
-      <p class="turnstile-hint">Cloudflare Turnstile test mode. Requires internet access and a compatible hosted page.</p>
+      <p class="turnstile-hint">Cloudflare Turnstile verification. Requires internet access and a compatible hosted page.</p>
     </div>
     <button class="primary login-submit" type="submit">Sign in</button>
     <div class="login-error" id="loginError" role="alert">That email or password is incorrect. Try again.</div>
@@ -201,4 +201,3 @@ document.querySelector(".brand strong").textContent=settings.name;
 renderAll();
 </script>
 </body>
-</html>
