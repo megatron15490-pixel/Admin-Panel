@@ -15,7 +15,10 @@
 .login-brand{display:flex;align-items:center;gap:12px;margin-bottom:26px}.login-brand .brand-icon{width:44px;height:44px;font-size:23px}.login-card h1{font-size:25px;margin:0 0 6px}.login-card .sub{color:var(--muted);margin:0 0 24px}.login-field{display:grid;gap:7px;margin:15px 0}.login-field label{font-size:12px;color:#c9d6eb;font-weight:650}.login-field input{width:100%;padding:12px}.password-wrap{display:flex;gap:8px}.password-wrap input{flex:1}.login-submit{width:100%;margin-top:9px;padding:12px}.login-error{display:none;margin:13px 0 0;padding:10px;border:1px solid #653344;border-radius:9px;background:#301b29;color:#ffb5bf;font-size:12px}.login-error.show{display:block}.login-note{font-size:11px;color:#91a2bd;margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}.signout{font-size:12px}
 
 .custom-logo{width:38px;height:38px;object-fit:cover;background:#fff;border-radius:50%;padding:0;flex-shrink:0;border:1px solid #d5dce6}.login-brand .custom-logo{width:52px;height:52px}.brand{gap:9px}.login-brand{flex-wrap:wrap}
+.turnstile-area{margin:18px 0 12px;min-height:70px}
+.turnstile-hint{font-size:11px;color:var(--muted);margin:7px 0 0}
 </style>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body>
 <section class="login-screen" id="loginScreen" aria-label="Sign in to Securly 2.0">
@@ -25,9 +28,15 @@
     <p class="sub">Sign in to unlock the admin panel.</p>
     <div class="login-field"><label for="loginEmail">Email address</label><input id="loginEmail" name="email" type="email" placeholder="you@example.com" autocomplete="username" required autofocus></div>
     <div class="login-field"><label for="loginPassword">Password</label><div class="password-wrap"><input id="loginPassword" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" required><button type="button" id="togglePassword" aria-label="Show password">Show</button></div></div>
-    <button class="primary login-submit" type="button" onclick="sentinelLogin()">Sign in</button>
+    <div class="turnstile-area">
+      <div class="cf-turnstile" data-sitekey="1x00000000000000000000AA" data-theme="dark"
+           data-callback="onTurnstileSuccess" data-expired-callback="onTurnstileExpired"
+           data-error-callback="onTurnstileError"></div>
+      <p class="turnstile-hint">Cloudflare Turnstile test widget. Internet connection required.</p>
+    </div>
+    <button class="primary login-submit" type="submit">Sign in</button>
     <div class="login-error" id="loginError" role="alert">That email or password is incorrect. Try again.</div>
-    <div class="login-note">Local test login only. This browser-only demo is not secure authentication. Do not reuse a real account password.</div>
+    <div class="login-note">Turnstile uses Cloudflare test keys and is NOT server-verified. Local test login only. This browser-only demo is not secure authentication. Do not reuse a real account password.</div>
   </form>
 </section>
 <div class="app" id="adminApp" style="display:none">
@@ -98,9 +107,18 @@ const $=id=>document.getElementById(id);
 const DEMO_EMAIL = "caiden.obrien182@gmail.com";
 const DEMO_PASSWORD = "Mega1221";
 const loginScreen = $("loginScreen"), adminApp = $("adminApp"), loginForm = $("loginForm"), loginError = $("loginError");
+let turnstilePassed = false;
+window.onTurnstileSuccess = function(token){turnstilePassed=!!token;loginError.classList.remove("show")};
+window.onTurnstileExpired = function(){turnstilePassed=false};
+window.onTurnstileError = function(){turnstilePassed=false};
 function lockPanel(){adminApp.style.display="none";loginScreen.style.display="grid";loginForm.reset();loginError.classList.remove("show");$("loginEmail").focus()}
 function unlockPanel(){loginScreen.style.display="none";adminApp.style.display="grid";loginError.classList.remove("show")}
 function sentinelLogin(){
+  if(!turnstilePassed){
+    loginError.textContent="Please complete the human verification before signing in.";
+    loginError.classList.add("show");
+    return;
+  }
   const email = $("loginEmail").value.trim().toLowerCase();
   const password = $("loginPassword").value;
   if (email === DEMO_EMAIL.toLowerCase() && password === DEMO_PASSWORD) {
@@ -113,7 +131,7 @@ function sentinelLogin(){
   }
 }
 loginForm.addEventListener("submit",e=>{e.preventDefault();sentinelLogin()});
-$("loginPassword").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();sentinelLogin()}});
+
 
 $("togglePassword").addEventListener("click",()=>{const field=$("loginPassword"),show=field.type==="password";field.type=show?"text":"password";$("togglePassword").textContent=show?"Hide":"Show";$("togglePassword").setAttribute("aria-label",show?"Hide password":"Show password")});
 $("signOutBtn").addEventListener("click",lockPanel);
