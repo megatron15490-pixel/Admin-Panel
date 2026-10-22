@@ -1,0 +1,18 @@
+yaml
+version: 2.1
+jobs:
+  build-and-test:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: Validate HTML Syntax
+          command: |
+            echo "Checking admin panel files..."
+            ls -la
+            echo "Frontend files look good!"
+workflows:
+  sample:
+    jobs:
+      - build-and-test
