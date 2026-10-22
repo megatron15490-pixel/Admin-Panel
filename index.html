@@ -17,6 +17,19 @@
 .custom-logo{width:38px;height:38px;object-fit:cover;background:#fff;border-radius:50%;padding:0;flex-shrink:0;border:1px solid #d5dce6}.login-brand .custom-logo{width:52px;height:52px}.brand{gap:9px}.login-brand{flex-wrap:wrap}
 .turnstile-area{margin:18px 0 12px;min-height:70px}
 .turnstile-hint{font-size:11px;color:var(--muted);margin:7px 0 0}
+.remember-option{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:12px;margin:8px 0 12px;cursor:pointer}.remember-option input{width:16px;height:16px;accent-color:var(--blue)}
+
+/* Account dropdown, reserved for future profile options */
+.account-menu{position:relative;flex-shrink:0}
+.account-trigger{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;border:1px solid transparent;border-radius:11px;padding:3px 8px 3px 3px;user-select:none}
+.account-trigger::-webkit-details-marker{display:none}
+.account-trigger:hover,.account-menu[open] .account-trigger{background:#1a2943;border-color:var(--line)}
+.account-trigger:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.account-chevron{font-size:18px;color:var(--muted);line-height:1;transition:transform .15s}
+.account-menu[open] .account-chevron{transform:rotate(180deg)}
+.account-dropdown{position:absolute;right:0;top:calc(100% + 9px);z-index:20;min-width:175px;padding:6px;background:#172238;border:1px solid #344664;border-radius:12px;box-shadow:0 15px 36px #0008}
+.account-logout{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:transparent;border:0;border-radius:8px;padding:11px 12px;color:#ffb5bf;font-size:13px}
+.account-logout:hover{background:#29354a;border:0}
 </style>
 
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -37,11 +50,12 @@
      data-expired-callback="turnstileExpired"
      data-error-callback="turnstileExpired">
 </div>
-      <p class="turnstile-hint">Cloudflare Turnstile verification. Requires internet access and a compatible hosted page.</p>
+      <p class="turnstile-hint">Cloudflare verification requires internet access.</p>
     </div>
+    <label class="remember-option"><input type="checkbox" id="rememberMe"> Remember me on this device</label>
     <button class="primary login-submit" type="submit">Sign in</button>
     <div class="login-error" id="loginError" role="alert">That email or password is incorrect. Try again.</div>
-    <div class="login-note">Turnstile is using a public test key and client-side checks only. It does not provide real bot protection until a server verifies tokens. Local test login only. This browser-only demo is not secure authentication. Do not reuse a real account password.</div>
+    <div class="login-note">Turnstile requires server-side token verification for real bot protection. Local test login only. This browser-only demo is not secure authentication. Do not reuse a real account password.</div>
   </form>
 </section>
 <div class="app" id="adminApp" style="display:none">
@@ -57,7 +71,12 @@
   <div class="side-bottom"><strong>◉ Demo environment</strong><p>This prototype uses sample devices. No real computers are being monitored.</p></div>
 </aside>
 <main class="main">
-<header class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="mobile-menu" id="menuBtn" aria-label="Open menu">☰</button><div><div class="crumb">Workspace / <span id="crumb">Overview</span></div><h1 id="topTitle">Admin overview</h1></div></div><div class="top-right"><span class="status-pill"><span class="dot"></span> All systems nominal</span><div class="avatar">CA</div><button class="signout" id="signOutBtn" type="button">Sign out</button></div></header>
+<header class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="mobile-menu" id="menuBtn" aria-label="Open menu">☰</button><div><div class="crumb">Workspace / <span id="crumb">Overview</span></div><h1 id="topTitle">Admin overview</h1></div></div><div class="top-right"><span class="status-pill"><span class="dot"></span> All systems nominal</span><details class="account-menu" id="accountMenu">
+  <summary class="account-trigger" aria-label="Open account menu"><span class="avatar">CA</span><span class="account-chevron" aria-hidden="true">⌄</span></summary>
+  <div class="account-dropdown" role="group" aria-label="Account actions">
+    <button class="account-logout" id="signOutBtn" type="button">↪ <span>Sign out</span></button>
+  </div>
+</details></div></header>
 <div class="content">
 <section class="section active" id="page-dashboard">
   <div class="page-head"><div><h2>Good evening, Admin</h2><p>Here's what's happening across your demo environment.</p></div><div class="head-actions"><button id="exportBtn">↧ Export report</button><button class="primary" id="quickDevice">＋ Add device</button></div></div>
@@ -112,7 +131,7 @@ const $=id=>document.getElementById(id);
 const DEMO_EMAIL = "caiden.obrien182@gmail.com";
 const DEMO_PASSWORD = "Mega1221";
 const loginScreen = $("loginScreen"), adminApp = $("adminApp"), loginForm = $("loginForm"), loginError = $("loginError");
-function lockPanel(){adminApp.style.display="none";loginScreen.style.display="grid";loginForm.reset();turnstileToken="";if(window.turnstile){try{window.turnstile.reset()}catch(e){}}loginError.classList.remove("show");$("loginEmail").focus()}
+function lockPanel(){try{localStorage.removeItem("securly_demo_remembered");sessionStorage.removeItem("securly_demo_session")}catch(e){}adminApp.style.display="none";loginScreen.style.display="grid";loginForm.reset();turnstileToken="";if(window.turnstile){try{window.turnstile.reset()}catch(e){}}loginError.classList.remove("show");$("loginEmail").focus()}
 function unlockPanel(){loginScreen.style.display="none";adminApp.style.display="grid";loginError.classList.remove("show")}
 let turnstileToken = "";
 window.turnstileSuccess = function(token){ turnstileToken = token || ""; loginError.classList.remove("show"); };
@@ -126,6 +145,7 @@ function sentinelLogin(){
   const email = $("loginEmail").value.trim().toLowerCase();
   const password = $("loginPassword").value;
   if (email === DEMO_EMAIL.toLowerCase() && password === DEMO_PASSWORD) {
+    try{if($("rememberMe").checked){localStorage.setItem("securly_demo_remembered","yes");sessionStorage.removeItem("securly_demo_session")}else{sessionStorage.setItem("securly_demo_session","yes");localStorage.removeItem("securly_demo_remembered")}}catch(e){}
     unlockPanel();
   } else {
     loginError.textContent = "Incorrect email or password. Please try again.";
@@ -139,6 +159,14 @@ loginForm.addEventListener("submit",e=>{e.preventDefault();sentinelLogin()});
 
 $("togglePassword").addEventListener("click",()=>{const field=$("loginPassword"),show=field.type==="password";field.type=show?"text":"password";$("togglePassword").textContent=show?"Hide":"Show";$("togglePassword").setAttribute("aria-label",show?"Hide password":"Show password")});
 $("signOutBtn").addEventListener("click",lockPanel);
+// Close the account menu when clicking elsewhere or pressing Escape.
+document.addEventListener("click",(event)=>{
+  const menu=$("accountMenu");
+  if(menu.open && !menu.contains(event.target)) menu.open=false;
+});
+document.addEventListener("keydown",(event)=>{
+  if(event.key==="Escape") $("accountMenu").open=false;
+});
 
 const defaultDevices=[
 {id:1,name:"PVMS-CHR-014",room:"Room 204",user:"Student 014",status:"Online",last:"Just now",kind:"laptop"},
@@ -199,5 +227,7 @@ $("bannerToggle").addEventListener("change",()=>{$("demoBanner").style.display=$
 const banner=document.createElement("div");banner.id="demoBanner";banner.style.cssText="display:flex;gap:8px;align-items:center;background:#172640;border:1px solid #2b4166;color:#b8caff;padding:10px 13px;border-radius:10px;margin-bottom:18px;font-size:11px";banner.innerHTML="<strong>ⓘ DEMO MODE</strong><span>Sample data only. No real devices or browsing activity are monitored.</span>";$("page-dashboard").insertBefore(banner,$("page-dashboard").children[1]);
 document.querySelector(".brand strong").textContent=settings.name;
 renderAll();
+// Restore demo sign-in state without storing a password.
+try{if(localStorage.getItem("securly_demo_remembered")==="yes" || sessionStorage.getItem("securly_demo_session")==="yes"){unlockPanel()}}catch(e){}
 </script>
 </body>
